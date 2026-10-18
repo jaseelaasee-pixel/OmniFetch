@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: omnifetch-public
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: OMNIFETCH_PUBLIC_HOSTED
+        value: "1"

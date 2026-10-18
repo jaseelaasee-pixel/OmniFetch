@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import atexit
+from collections import deque
 import ipaddress
 import mimetypes
+import os
 import secrets
 import shutil
 import tempfile
@@ -21,15 +23,20 @@ APP_DIR = Path(__file__).resolve().parent
 ALLOWED_DOMAINS = (
     "youtube.com",
     "youtu.be",
+    "snapchat.com",
     "instagram.com",
     "tiktok.com",
     "twitter.com",
     "x.com",
 )
 QUALITY_HEIGHTS = {
+    "144p": 144,
+    "240p": 240,
+    "360p": 360,
     "480p": 480,
     "720p": 720,
     "1080p": 1080,
+    "1440p": 1440,
     "2160p": 2160,
 }
 VALID_FORMATS = {"mp4", "mkv", "mp3"}
@@ -38,6 +45,16 @@ TICKET_LIFETIME_SECONDS = 60 * 60
 
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = 32 * 1024
+PUBLIC_HOSTED = os.environ.get("OMNIFETCH_PUBLIC_HOSTED", "").strip() == "1"
+_public_requests: dict[str, deque[float]] = {}
+_public_requests_lock = threading.Lock()
+_public_prepare_lock = threading.BoundedSemaphore(1)
+
+if PUBLIC_HOSTED:
+    # Render terminates TLS at one trusted reverse proxy before forwarding here.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 
 @dataclass
@@ -81,7 +98,7 @@ def validate_media_url(raw_url: object) -> str:
         raise ValueError("Paste a link from a supported media platform.")
 
     if not any(host == domain or host.endswith("." + domain) for domain in ALLOWED_DOMAINS):
-        raise ValueError("Supported links are from YouTube, Instagram, TikTok, X, or Twitter.")
+        raise ValueError("Supported links are from YouTube, Snapchat Spotlight, Instagram, TikTok, X, or Twitter.")
     return raw_url
 
 
@@ -196,7 +213,7 @@ def _friendly_error(exc: Exception) -> str:
     if "requested format" in message or "no video formats" in message or "no suitable formats" in message:
         return "That format or quality isn’t available for this media. Try a lower quality or another format."
     if "unsupported url" in message or "no suitable extractor" in message:
-        return "This link type isn’t supported. Try a public YouTube, Instagram, TikTok, X, or Twitter link."
+        return "This link type isn’t supported. Try a public YouTube, Snapchat Spotlight, Instagram, TikTok, X, or Twitter link."
     return "Couldn’t read or prepare this media. It may be private, unavailable, or blocked by its source."
 
 
@@ -239,6 +256,41 @@ def index():
     return send_from_directory(APP_DIR, "index.html")
 
 
+@app.get("/health")
+def health():
+    return jsonify({"status": "ok"})
+
+
+@app.before_request
+def limit_public_api_requests():
+    if not PUBLIC_HOSTED or not request.path.startswith("/api/"):
+        return None
+
+    now = time.monotonic()
+    client = request.remote_addr or "unknown"
+    window_seconds = 60
+    max_requests = 20
+    with _public_requests_lock:
+        recent = _public_requests.setdefault(client, deque())
+        while recent and now - recent[0] >= window_seconds:
+            recent.popleft()
+        if len(recent) >= max_requests:
+            retry_after = max(1, int(window_seconds - (now - recent[0])))
+            response = jsonify({"error": "Too many requests. Please wait a minute, then try again."})
+            response.status_code = 429
+            response.headers["Retry-After"] = str(retry_after)
+            return response
+        recent.append(now)
+        if len(_public_requests) > 5000:
+            stale_before = now - window_seconds
+            for address in [
+                address for address, events in _public_requests.items()
+                if not events or events[-1] < stale_before
+            ]:
+                _public_requests.pop(address, None)
+    return None
+
+
 @app.post("/api/info")
 def media_info():
     payload = request.get_json(silent=True) or {}
@@ -270,6 +322,12 @@ def media_info():
 
 @app.post("/api/prepare")
 def prepare_download():
+    acquired_prepare_slot = False
+    if PUBLIC_HOSTED:
+        acquired_prepare_slot = _public_prepare_lock.acquire(blocking=False)
+        if not acquired_prepare_slot:
+            return jsonify({"error": "The public server is busy preparing another file. Please try again shortly."}), 503
+
     payload = request.get_json(silent=True) or {}
     if not isinstance(payload, dict):
         payload = {}
@@ -311,6 +369,9 @@ def prepare_download():
         if folder:
             shutil.rmtree(folder, ignore_errors=True)
         return jsonify({"error": _friendly_error(exc)}), 422
+    finally:
+        if acquired_prepare_slot:
+            _public_prepare_lock.release()
 
 
 @app.get("/api/file/<token>")

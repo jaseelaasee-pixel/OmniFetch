@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0f19">
+  <title>OmniFetch — Media Downloader</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0f19;
+      --card: rgba(22, 31, 48, .82);
+      --accent: #6366f1;
+      --accent-dark: #4f46e5;
+      --pink: #ec4899;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --border: rgba(255, 255, 255, .11);
+      --success: #10b981;
+      --error: #f87171;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 36px 16px;
+      display: grid;
+      place-items: center;
+      overflow-x: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Outfit", system-ui, sans-serif;
+    }
+    button, input, select { font: inherit; }
+    .glow {
+      position: fixed;
+      width: 350px;
+      height: 350px;
+      z-index: -1;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: .42;
+      pointer-events: none;
+      animation: pulse 8s ease-in-out infinite alternate;
+    }
+    .glow.one { top: 8%; left: 8%; background: var(--accent); }
+    .glow.two { right: 7%; bottom: 6%; background: var(--pink); }
+    @keyframes pulse {
+      from { transform: scale(.95); opacity: .32; }
+      to { transform: scale(1.15) translate(16px, -12px); opacity: .55; }
+    }
+    .container {
+      width: min(100%, 680px);
+      padding: 36px 32px 28px;
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: var(--card);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .45);
+      backdrop-filter: blur(18px);
+      text-align: center;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .brand-icon {
+      font-size: 2rem;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      color: transparent;
+      background-clip: text;
+      -webkit-background-clip: text;
+      animation: float 3s ease-in-out infinite;
+    }
+    .brand-name {
+      font-size: 2.1rem;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: -1px;
+      background: linear-gradient(90deg, #fff, #aab5c7);
+      color: transparent;
+      background-clip: text;
+      -webkit-background-clip: text;
+    }
+    @keyframes float {
+      50% { transform: translateY(-6px); }
+    }
+    .subtitle {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: .96rem;
+    }
+    .platforms {
+      display: flex;
+      justify-content: center;
+      gap: 18px;
+      margin-bottom: 24px;
+      color: var(--muted);
+      font-size: 1.2rem;
+    }
+    .platforms i { transition: color .2s, transform .2s; }
+    .platforms i:hover { color: #fff; transform: translateY(-2px); }
+    .input-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px 7px 15px;
+      border: 1.5px solid var(--border);
+      border-radius: 15px;
+      background: rgba(15, 23, 42, .72);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .input-box:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(99, 102, 241, .24);
+    }
+    .link-icon { color: var(--muted); }
+    .input-box input {
+      width: 100%;
+      min-width: 0;
+      padding: 10px 2px;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: #fff;
+      font-size: .95rem;
+    }
+    .input-box input::placeholder { color: #77849a; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border: 0;
+      border-radius: 11px;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .2s, box-shadow .2s, opacity .2s;
+    }
+    .btn:hover:not(:disabled) { transform: translateY(-1px); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .paste-btn {
+      flex: 0 0 auto;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, .08);
+      color: var(--muted);
+      font-size: .82rem;
+    }
+    .paste-btn:hover:not(:disabled) { background: rgba(255, 255, 255, .15); color: #fff; }
+    .fetch-btn {
+      flex: 0 0 auto;
+      padding: 12px 17px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    }
+    .status {
+      min-height: 28px;
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      color: var(--muted);
+      font-size: .88rem;
+    }
+    .status.error { color: var(--error); }
+    .status.success { color: var(--success); }
+    .spinner {
+      display: none;
+      width: 17px;
+      height: 17px;
+      border: 3px solid rgba(255, 255, 255, .13);
+      border-left-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    .status.loading .spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .options-card {
+      margin-top: 20px;
+      padding: 21px;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: rgba(15, 23, 42, .56);
+      text-align: left;
+      animation: slide-up .3s ease-out;
+    }
+    .options-card[hidden] { display: none; }
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .media-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+    .thumb {
+      flex: 0 0 104px;
+      width: 104px;
+      height: 68px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border-radius: 9px;
+      background: #1e293b;
+      color: var(--accent);
+      font-size: 1.5rem;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .media-title { margin: 0; color: #fff; font-size: .98rem; font-weight: 600; overflow-wrap: anywhere; }
+    .media-subtitle { margin: 5px 0 0; color: var(--muted); font-size: .82rem; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      margin-bottom: 7px;
+      color: var(--muted);
+      font-size: .82rem;
+    }
+    .form-control {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      background: #0f172a;
+      color: #fff;
+      font-size: .92rem;
+    }
+    .form-control:focus { border-color: var(--accent); }
+    .estimate-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 2px;
+      padding: 13px 14px;
+      border: 1px solid rgba(99, 102, 241, .28);
+      border-radius: 12px;
+      background: rgba(99, 102, 241, .09);
+    }
+    .estimate-label { color: #cbd5e1; font-size: .86rem; }
+    .estimate-value { color: #fff; font-size: 1.1rem; font-weight: 700; white-space: nowrap; }
+    .estimate-note { margin: 8px 1px 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
+    .download-btn {
+      width: 100%;
+      margin-top: 16px;
+      padding: 13px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      font-size: .98rem;
+    }
+    .download-btn:hover:not(:disabled) { box-shadow: 0 5px 18px rgba(16, 185, 129, .3); }
+    .footer-note {
+      margin: 22px auto 0;
+      max-width: 540px;
+      color: var(--muted);
+      font-size: .76rem;
+      line-height: 1.55;
+    }
+    .footer-note i { margin-right: 5px; color: var(--success); }
+    dialog {
+      width: min(calc(100% - 30px), 440px);
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, .16);
+      border-radius: 18px;
+      background: #111827;
+      color: var(--text);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, .6);
+    }
+    dialog::backdrop { background: rgba(2, 6, 23, .76); backdrop-filter: blur(5px); }
+    .dialog-inner { padding: 24px; }
+    .dialog-inner h2 { margin: 0 0 7px; font-size: 1.3rem; }
+    .dialog-copy { margin: 0 0 18px; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 9px 15px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .035);
+      font-size: .87rem;
+    }
+    .summary span { color: var(--muted); }
+    .summary strong { max-width: 220px; text-align: right; overflow-wrap: anywhere; }
+    .dialog-note { margin: 14px 0 0; color: var(--muted); font-size: .76rem; line-height: 1.5; }
+    .dialog-progress { display: none; align-items: center; gap: 9px; margin-top: 17px; color: #cbd5e1; font-size: .86rem; }
+    .dialog-progress.visible { display: flex; }
+    .dialog-error { margin: 14px 0 0; color: var(--error); font-size: .85rem; line-height: 1.5; }
+    .dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+    .dialog-actions[hidden] { display: none; }
+    .cancel-btn { padding: 11px 15px; background: rgba(255, 255, 255, .09); color: #dbe4f0; }
+    .confirm-btn { padding: 11px 16px; background: linear-gradient(135deg, var(--accent), var(--accent-dark)); }
+    .save-btn { padding: 11px 16px; background: linear-gradient(135deg, #10b981, #059669); }
+    @media (max-width: 560px) {
+      body { padding: 20px 12px; }
+      .container { padding: 28px 18px 22px; border-radius: 19px; }
+      .brand-name { font-size: 1.85rem; }
+      .input-box { flex-wrap: wrap; padding: 9px; }
+      .link-icon { margin-left: 6px; }
+      .input-box input { flex: 1; }
+      .paste-btn { margin-left: auto; }
+      .fetch-btn { flex: 1 0 100%; }
+      .form-grid { grid-template-columns: 1fr; gap: 0; }
+      .thumb { flex-basis: 82px; width: 82px; height: 58px; }
+      .options-card { padding: 16px; }
+      .dialog-inner { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="glow one" aria-hidden="true"></div>
+  <div class="glow two" aria-hidden="true"></div>
+
+  <main class="container">
+    <div class="brand">
+      <i class="fa-solid fa-bolt brand-icon" aria-hidden="true"></i>
+      <span class="brand-name">OmniFetch</span>
+    </div>
+    <p class="subtitle">Choose a format, check the size, then save the media.</p>
+
+    <div class="platforms" aria-label="Supported platforms">
+      <i class="fa-brands fa-youtube" title="YouTube"></i>
+      <i class="fa-brands fa-snapchat" title="Snapchat Spotlight"></i>
+      <i class="fa-brands fa-instagram" title="Instagram"></i>
+      <i class="fa-brands fa-x-twitter" title="X"></i>
+      <i class="fa-brands fa-tiktok" title="TikTok"></i>
+    </div>
+
+    <form class="input-box" id="fetchForm">
+      <i class="fa-solid fa-link link-icon" aria-hidden="true"></i>
+      <input id="urlInput" type="url" placeholder="Paste a public media link…" autocomplete="url" required>
+      <button class="btn paste-btn" id="pasteBtn" type="button">
+        <i class="fa-regular fa-paste" aria-hidden="true"></i><span>Paste</span>
+      </button>
+      <button class="btn fetch-btn" id="fetchBtn" type="submit">
+        <span>Check link</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+      </button>
+    </form>
+
+    <div class="status" id="status" role="status" aria-live="polite">
+      <span class="spinner" aria-hidden="true"></span>
+      <span id="statusText">Paste a link to see available media and estimated size.</span>
+    </div>
+
+    <section class="options-card" id="optionsCard" hidden aria-labelledby="mediaTitle">
+      <div class="media-info">
+        <div class="thumb" id="thumbBox" aria-hidden="true">
+          <i class="fa-solid fa-video"></i>
+        </div>
+        <div>
+          <h2 class="media-title" id="mediaTitle">Media details</h2>
+          <p class="media-subtitle" id="mediaSubtitle"></p>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="formatSelect"><i class="fa-solid fa-file-video" aria-hidden="true"></i> Format</label>
+          <select class="form-control" id="formatSelect">
+            <option value="mp4">MP4</option>
+            <option value="mkv">MKV</option>
+            <option value="mp3">MP3 (audio only)</option>
+          </select>
+        </div>
+        <div class="form-group" id="qualityGroup">
+          <label for="qualitySelect"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Maximum quality</label>
+          <select class="form-control" id="qualitySelect">
+            <option value="144p">144p</option>
+            <option value="240p">240p</option>
+            <option value="360p">360p</option>
+            <option value="480p" selected>480p (SD)</option>
+            <option value="720p">720p (HD)</option>
+            <option value="1080p">1080p (Full HD)</option>
+            <option value="1440p">1440p (2K, if available)</option>
+            <option value="2160p">2160p (4K, if available)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="estimate-box">
+        <span class="estimate-label"><i class="fa-solid fa-hard-drive" aria-hidden="true"></i> Estimated file size</span>
+        <strong class="estimate-value" id="estimatedSize">—</strong>
+      </div>
+      <p class="estimate-note" id="estimateNote">The estimate updates when you change format or quality. The final size can vary.</p>
+
+      <button class="btn download-btn" id="downloadBtn" type="button" disabled>
+        <i class="fa-solid fa-download" aria-hidden="true"></i> Download media
+      </button>
+    </section>
+
+    <p class="footer-note">
+      <i class="fa-solid fa-shield-halved" aria-hidden="true"></i>
+OmniFetch temporarily processes the link and file on its server. Use only media you have permission to save. Private, sign-in-only, and DRM-protected media aren’t supported.
+    </p>
+  </main>
+
+  <dialog id="confirmDialog" aria-labelledby="dialogTitle">
+    <div class="dialog-inner">
+      <h2 id="dialogTitle">Confirm download</h2>
+      <p class="dialog-copy" id="dialogCopy">Check the selected format and estimated size before preparing the file.</p>
+      <div class="summary">
+        <span>Media</span><strong id="confirmName">—</strong>
+        <span>Format</span><strong id="confirmFormat">—</strong>
+        <span>Quality</span><strong id="confirmQuality">—</strong>
+        <span id="confirmSizeLabel">Estimated size</span><strong id="confirmSize">—</strong>
+      </div>
+      <p class="dialog-note" id="dialogNote">After preparation, you’ll see the final size before saving it to your browser’s Downloads location.</p>
+      <div class="dialog-progress" id="dialogProgress" role="status" aria-live="polite">
+        <span class="spinner" style="display:inline-block" aria-hidden="true"></span>
+        <span id="progressText">Preparing the media…</span>
+      </div>
+      <p class="dialog-error" id="dialogError" hidden></p>
+      <div class="dialog-actions" id="prepareActions">
+        <button class="btn cancel-btn" id="cancelBtn" type="button">Cancel</button>
+        <button class="btn confirm-btn" id="confirmBtn" type="button">Confirm &amp; prepare</button>
+      </div>
+      <div class="dialog-actions" id="saveActions" hidden>
+        <button class="btn cancel-btn" id="closeReadyBtn" type="button">Close</button>
+        <button class="btn save-btn" id="saveBtn" type="button"><i class="fa-solid fa-download" aria-hidden="true"></i> Save to Downloads</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script>
+    const elements = {
+      fetchForm: document.getElementById("fetchForm"),
+      fetchBtn: document.getElementById("fetchBtn"),
+      url: document.getElementById("urlInput"),
+      pasteBtn: document.getElementById("pasteBtn"),
+      status: document.getElementById("status"),
+      statusText: document.getElementById("statusText"),
+      card: document.getElementById("optionsCard"),
+      title: document.getElementById("mediaTitle"),
+      subtitle: document.getElementById("mediaSubtitle"),
+      thumb: document.getElementById("thumbBox"),
+      format: document.getElementById("formatSelect"),
+      quality: document.getElementById("qualitySelect"),
+      qualityGroup: document.getElementById("qualityGroup"),
+      size: document.getElementById("estimatedSize"),
+      estimateNote: document.getElementById("estimateNote"),
+      downloadBtn: document.getElementById("downloadBtn"),
+      dialog: document.getElementById("confirmDialog"),
+      dialogTitle: document.getElementById("dialogTitle"),
+      dialogCopy: document.getElementById("dialogCopy"),
+      dialogNote: document.getElementById("dialogNote"),
+      dialogProgress: document.getElementById("dialogProgress"),
+      progressText: document.getElementById("progressText"),
+      dialogError: document.getElementById("dialogError"),
+      confirmName: document.getElementById("confirmName"),
+      confirmFormat: document.getElementById("confirmFormat"),
+      confirmQuality: document.getElementById("confirmQuality"),
+      confirmSizeLabel: document.getElementById("confirmSizeLabel"),
+      confirmSize: document.getElementById("confirmSize"),
+      prepareActions: document.getElementById("prepareActions"),
+      saveActions: document.getElementById("saveActions"),
+      cancelBtn: document.getElementById("cancelBtn"),
+      confirmBtn: document.getElementById("confirmBtn"),
+      closeReadyBtn: document.getElementById("closeReadyBtn"),
+      saveBtn: document.getElementById("saveBtn")
+    };
+
+    let currentInfo = null;
+    let readyToken = null;
+
+    function setStatus(message, state) {
+      elements.status.className = "status" + (state ? " " + state : "");
+      elements.statusText.textContent = message;
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === null || bytes === undefined || !Number.isFinite(Number(bytes))) return "Size unavailable";
+      const value = Number(bytes);
+      if (value < 1024 * 1024) return Math.max(1, Math.round(value / 1024)) + " KB";
+      if (value < 1024 * 1024 * 1024) return (value / (1024 * 1024)).toFixed(value < 10 * 1024 * 1024 ? 1 : 0) + " MB";
+      return (value / (1024 * 1024 * 1024)).toFixed(value < 10 * 1024 * 1024 * 1024 ? 2 : 1) + " GB";
+    }
+
+    function formatDuration(seconds) {
+      if (!Number.isFinite(Number(seconds))) return "Length unavailable";
+      const total = Math.max(0, Math.round(Number(seconds)));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const remaining = total % 60;
+      if (hours) return hours + ":" + String(minutes).padStart(2, "0") + ":" + String(remaining).padStart(2, "0");
+      return minutes + ":" + String(remaining).padStart(2, "0");
+    }
+
+    function selectedOptions() {
+      return {
+        url: elements.url.value.trim(),
+        format: elements.format.value,
+        quality: elements.quality.value
+      };
+    }
+
+    async function postJson(path, data) {
+      const response = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      });
+      let result = {};
+      try { result = await response.json(); } catch (error) {}
+      if (!response.ok) throw new Error(result.error || "Downloader backend unavailable. Run start.bat and open http://127.0.0.1:8765.");
+      return result;
+    }
+
+    async function checkLink() {
+      const options = selectedOptions();
+      if (!options.url) {
+        setStatus("Paste a link first.", "error");
+        elements.url.focus();
+        return;
+      }
+      elements.fetchBtn.disabled = true;
+      elements.downloadBtn.disabled = true;
+      elements.card.hidden = true;
+      currentInfo = null;
+      readyToken = null;
+      elements.downloadBtn.innerHTML = '<i class="fa-solid fa-download" aria-hidden="true"></i> Download media';
+      setStatus("Checking the link and estimating the selected file size…", "loading");
+      try {
+        const info = await postJson("/api/info", options);
+        currentInfo = info;
+        elements.title.textContent = info.title || "Media found";
+        const resolution = info.selected_height ? " · " + info.selected_height + "p selected" : "";
+        elements.subtitle.textContent = formatDuration(info.duration_seconds) + resolution;
+        elements.thumb.replaceChildren();
+        if (info.thumbnail) {
+          const image = document.createElement("img");
+          image.src = info.thumbnail;
+          image.alt = "";
+          image.referrerPolicy = "no-referrer";
+          image.onerror = function () {
+            elements.thumb.innerHTML = '<i class="fa-solid fa-video" aria-hidden="true"></i>';
+          };
+          elements.thumb.appendChild(image);
+        } else {
+          elements.thumb.innerHTML = '<i class="fa-solid fa-video" aria-hidden="true"></i>';
+        }
+        elements.size.textContent = info.estimated_size_bytes === null ? "Size unavailable" : "~" + formatBytes(info.estimated_size_bytes);
+        elements.estimateNote.textContent = info.estimated_size_bytes === null
+          ? "This source does not provide enough size information to estimate before download."
+          : "Approximate estimate. The final size can vary slightly after conversion or merging.";
+        elements.card.hidden = false;
+        elements.downloadBtn.disabled = false;
+        setStatus("Link checked. Review the size, then choose Download media.", "success");
+      } catch (error) {
+        setStatus(error.message, "error");
+      } finally {
+        elements.fetchBtn.disabled = false;
+      }
+    }
+
+    function updateFormatControls() {
+      const audioOnly = elements.format.value === "mp3";
+      elements.qualityGroup.hidden = audioOnly;
+      if (currentInfo) checkLink();
+    }
+
+    function openConfirmation() {
+      if (readyToken) {
+        savePreparedFile();
+        return;
+      }
+      if (!currentInfo) return;
+      readyToken = null;
+      elements.dialogTitle.textContent = "Confirm download";
+      elements.dialogCopy.textContent = "Check the selected format and estimated size before preparing the file.";
+      elements.dialogNote.textContent = "After preparation, you’ll see the final size before saving it to your browser’s Downloads location.";
+      elements.confirmName.textContent = currentInfo.title || "Media";
+      elements.confirmFormat.textContent = elements.format.value.toUpperCase();
+      elements.confirmQuality.textContent = elements.format.value === "mp3" ? "Audio only, 192 kbps" : "Up to " + elements.quality.value;
+      elements.confirmSizeLabel.textContent = "Estimated size";
+      elements.confirmSize.textContent = currentInfo.estimated_size_bytes === null ? "Unavailable" : "~" + formatBytes(currentInfo.estimated_size_bytes);
+      elements.dialogProgress.classList.remove("visible");
+      elements.dialogError.hidden = true;
+      elements.prepareActions.hidden = false;
+      elements.saveActions.hidden = true;
+      elements.confirmBtn.disabled = false;
+      elements.confirmBtn.textContent = "Confirm & prepare";
+      elements.dialog.showModal();
+    }
+
+    async function prepareDownload() {
+      elements.confirmBtn.disabled = true;
+      elements.cancelBtn.disabled = true;
+      elements.dialogTitle.textContent = "Preparing your file";
+elements.dialogCopy.textContent = "The media is being prepared by OmniFetch. Larger files can take a few minutes.";
+      elements.dialogProgress.classList.add("visible");
+      elements.progressText.textContent = "Preparing the selected format…";
+      elements.dialogError.hidden = true;
+setStatus("Preparing your media file…", "loading");
+      try {
+        const prepared = await postJson("/api/prepare", selectedOptions());
+        readyToken = prepared.token;
+        elements.dialogTitle.textContent = "Your file is ready";
+        elements.dialogCopy.textContent = "The final file has been prepared. Save it to your browser’s Downloads location.";
+        elements.dialogNote.textContent = "Your browser may use a different folder if its download location has been changed.";
+        elements.confirmSizeLabel.textContent = "Final file size";
+        elements.confirmSize.textContent = formatBytes(prepared.size_bytes);
+        elements.dialogProgress.classList.remove("visible");
+        elements.prepareActions.hidden = true;
+        elements.saveActions.hidden = false;
+        elements.downloadBtn.innerHTML = '<i class="fa-solid fa-download" aria-hidden="true"></i> Save to Downloads';
+        elements.downloadBtn.disabled = false;
+        setStatus("File ready: " + formatBytes(prepared.size_bytes) + ". Choose Save to Downloads.", "success");
+      } catch (error) {
+        elements.dialogProgress.classList.remove("visible");
+        elements.dialogError.textContent = error.message;
+        elements.dialogError.hidden = false;
+        elements.dialogTitle.textContent = "Couldn’t prepare the file";
+        elements.dialogCopy.textContent = "Check the link and try again.";
+        elements.cancelBtn.disabled = false;
+        elements.confirmBtn.disabled = false;
+        elements.confirmBtn.textContent = "Try again";
+        setStatus(error.message, "error");
+      }
+    }
+
+    function savePreparedFile() {
+      if (!readyToken) return;
+      const link = document.createElement("a");
+      link.href = "/api/file/" + encodeURIComponent(readyToken);
+      link.download = "";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      readyToken = null;
+      elements.downloadBtn.innerHTML = '<i class="fa-solid fa-download" aria-hidden="true"></i> Download media';
+      elements.dialog.close();
+      setStatus("Download started. Check your browser’s Downloads list.", "success");
+    }
+
+    elements.fetchForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      checkLink();
+    });
+    elements.pasteBtn.addEventListener("click", async function () {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          elements.url.value = text;
+          elements.url.dispatchEvent(new Event("input", { bubbles: true }));
+          elements.url.focus();
+        }
+      } catch (error) {
+        setStatus("Clipboard access is unavailable here. Paste the link with Ctrl+V.", "error");
+        elements.url.focus();
+      }
+    });
+    elements.url.addEventListener("input", function () {
+      currentInfo = null;
+      elements.card.hidden = true;
+      elements.downloadBtn.disabled = true;
+      setStatus("Link changed. Check it again before downloading.", "");
+    });
+    elements.format.addEventListener("change", updateFormatControls);
+    elements.quality.addEventListener("change", function () {
+      if (currentInfo) checkLink();
+    });
+    elements.downloadBtn.addEventListener("click", openConfirmation);
+    elements.cancelBtn.addEventListener("click", function () {
+      elements.dialog.close();
+      elements.cancelBtn.disabled = false;
+    });
+    elements.closeReadyBtn.addEventListener("click", function () {
+      elements.dialog.close();
+    });
+    elements.confirmBtn.addEventListener("click", prepareDownload);
+    elements.saveBtn.addEventListener("click", savePreparedFile);
+  </script>
+</body>
+</html>
