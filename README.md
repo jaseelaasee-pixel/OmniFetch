@@ -23,7 +23,7 @@ The size shown before preparation is an estimate. The app uses the advertised st
 - Maximum video quality of 480p, 720p, 1080p, or 2160p when available.
 - One media item per link.
 
-The app does not use account cookies or sign-in credentials. Private, sign-in-only, and DRM-protected media are not supported. Only save media you own or have permission to download.
+The app does not use account cookies or sign-in credentials. Private, sign-in-only, and DRM-protected media are not supported. Only save media you own or have permission to download. YouTube sometimes changes its player or blocks requests from cloud servers, so a public video can still be temporarily unavailable to this hosted app.
 
 The local Python server binds to 127.0.0.1, so it runs on your computer and is not open to other devices on the network. Preparing a file needs temporary disk space about the size of the selected media. Prepared files are held in a temporary folder and removed after the browser download or after one hour.
 
@@ -39,6 +39,6 @@ The free `onrender.com` address works without buying a domain. A `www.your-domai
 
 ## Dependencies
 
-This app uses [Flask](https://flask.palletsprojects.com/) for its web interface and [yt-dlp](https://github.com/yt-dlp/yt-dlp) to inspect and prepare media. The yt-dlp default package installs its EJS component. Full YouTube support also needs a supported JavaScript runtime such as Node.js 22+ or Deno 2.3+. FFmpeg/ffprobe are required for merging and post-processing. See the [yt-dlp dependency notes](https://github.com/yt-dlp/yt-dlp#dependencies) and [EJS setup guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
+This app uses [Flask](https://flask.palletsprojects.com/) for its web interface and [yt-dlp](https://github.com/yt-dlp/yt-dlp) to inspect and prepare media. It installs yt-dlp’s nightly channel so it can pick up extractor fixes between stable releases; nightly builds can change more often. The yt-dlp default package installs its EJS component. Full YouTube support also needs a supported JavaScript runtime such as Node.js 22+ or Deno 2.3+. FFmpeg/ffprobe are required for merging and post-processing. See the [yt-dlp installation guide](https://github.com/yt-dlp/yt-dlp/wiki/Installation), [dependency notes](https://github.com/yt-dlp/yt-dlp#dependencies), and [EJS setup guide](https://github.com/yt-dlp/yt-dlp/wiki/EJS).
 
 If setup previously failed while building a Brotli wheel, install Python 3.14 (64-bit) from the link above and run **start.bat** again. The installer now detects Python 3.15 and stops with instructions instead of attempting that failed build. You do not need to install Microsoft C++ Build Tools for this issue.

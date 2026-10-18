@@ -208,6 +208,8 @@ def _extract_info(url: str, media_format: str, quality: str) -> dict:
 
 def _friendly_error(exc: Exception) -> str:
     message = str(exc).lower()
+    if "failed to extract any player response" in message or "confirm you’re not a bot" in message or "confirm you are not a bot" in message:
+        return "YouTube didn’t return video details to the server. YouTube may be changing its player or blocking cloud server requests. Try again later or check another public video."
     if "ffmpeg" in message or "ffprobe" in message:
         return "FFmpeg and ffprobe are needed for MP3 conversion and video merging. Install FFmpeg, then restart OmniFetch."
     if "requested format" in message or "no video formats" in message or "no suitable formats" in message:

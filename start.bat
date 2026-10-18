@@ -58,7 +58,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-".venv\Scripts\python.exe" -m pip install -r requirements.txt
+".venv\Scripts\python.exe" -m pip install --pre -r requirements.txt
 if errorlevel 1 (
   echo Could not install the Python packages. Check your internet connection and confirm Python 3.10 through 3.14 is installed.
   pause

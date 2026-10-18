@@ -14,7 +14,8 @@ WORKDIR /app
 
 COPY requirements.txt ./
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir -r requirements.txt
+    && python -m pip install --no-cache-dir -r requirements.txt \
+    && python -m pip install --no-cache-dir --upgrade --pre "yt-dlp[default]"
 
 COPY app.py index.html ./
 ENV OMNIFETCH_PUBLIC_HOSTED=1
